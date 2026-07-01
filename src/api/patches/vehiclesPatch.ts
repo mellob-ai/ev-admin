@@ -12,7 +12,10 @@ function extractRows(payload: unknown): ApiBike[] {
   const p = payload as Record<string, unknown> | null;
   if (Array.isArray(p?.data)) return p!.data as ApiBike[];
   if (Array.isArray(p?.items)) return p!.items as ApiBike[];
-  if (Array.isArray((p?.data as Record<string, unknown>)?.items)) return (p!.data as Record<string, unknown>).items as ApiBike[];
+  const inner = p?.data as Record<string, unknown> | undefined;
+  // Admin bikes list is paginated as { data: { data: [...], pagination } }.
+  if (Array.isArray(inner?.data)) return inner!.data as ApiBike[];
+  if (Array.isArray(inner?.items)) return inner!.items as ApiBike[];
   return [];
 }
 

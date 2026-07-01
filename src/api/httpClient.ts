@@ -67,7 +67,10 @@ export async function httpRequest({ method = 'GET', path, query, body, headers =
       headers: requestHeaders,
       body: hasBody ? JSON.stringify(body) : undefined,
       signal: finalSignal,
-      credentials: 'include',
+      // Auth is header-based (X-Karma-* / Bearer), not cookie-based. Using
+      // 'include' would require the API to send Access-Control-Allow-Credentials:true,
+      // which it doesn't — so omit credentials to keep cross-origin CORS working.
+      credentials: 'omit',
     });
 
     const payload = await parseResponseBody(response);

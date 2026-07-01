@@ -25,7 +25,7 @@ function normalizedRole(value: unknown): string {
 export const STAFF_PATCH = {
   endpoints: {
     list: '/v1/admin/users',
-    create: '/v1/auth/register',
+    create: '/v1/admin/users',
     update: (uid: string) => `/v1/admin/users/${encodeURIComponent(uid)}`,
     remove: '/v1/admin/users',
   },

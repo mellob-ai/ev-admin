@@ -1,7 +1,9 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useFilterPanel, FilterPanel } from '../../components/ColumnFilter';
 import { downloadCsv, timestampSlug } from '../../utils/clientActions';
 import { buildWalletData, loadStoredUsers } from '../../utils/usageData';
+import { isApiIntegrationEnabled } from '../../api/runtime';
+import { listWallets, listTransactions } from '../../api/services/walletService';
 
 const WALLET = buildWalletData(loadStoredUsers());
 
@@ -17,6 +19,34 @@ const COLUMNS = [
 export default function WalletPage() {
   const [walletRows, setWalletRows] = useState(WALLET);
   const fp = useFilterPanel();
+
+  // Overlay real wallet balances (and last-transaction dates) from the API,
+  // falling back to the locally-derived rows if the API is unavailable/empty.
+  useEffect(() => {
+    if (!isApiIntegrationEnabled()) return;
+    let mounted = true;
+    Promise.all([listWallets(), listTransactions().catch(() => [])])
+      .then(([wallets, txns]) => {
+        if (!mounted || !wallets?.length) return;
+        const latest: Record<string, { date: string; ts: string }> = {};
+        for (const t of txns) {
+          if (!t.userId || !t.timestamp) continue;
+          if (!latest[t.userId] || t.timestamp > latest[t.userId].ts) {
+            latest[t.userId] = { date: t.dateLabel, ts: t.timestamp };
+          }
+        }
+        setWalletRows(wallets.map((w) => ({
+          id: w.userId,
+          name: '—',
+          balance: w.balanceLabel,
+          pending: '₹0',
+          last: latest[w.userId]?.date || '—',
+          status: 'Cleared',
+        })));
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   const visible = useMemo(() => walletRows.filter((w) => COLUMNS.every((c) => fp.match(c.key, w[c.key]))), [walletRows, fp.filters]);
 
   const summary = useMemo(() => {
