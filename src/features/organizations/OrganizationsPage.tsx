@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../../components/Modal';
 import { StationMap, LocationPickerMap } from '../../components/StationMap';
 import { loadOrganizationSettings } from '../../config/organization-settings';
@@ -310,6 +310,17 @@ export default function OrganizationsPage() {
     };
   }, []);
 
+  // Keep the latest settings in refs so the fetch effect can map with current
+  // values WITHOUT depending on them. Depending on orgSettings/businessSetup
+  // here caused an infinite refetch loop: fetch → setOrganizations → the persist
+  // effect saves locations → dispatches 'mos:operations-locations-updated' → the
+  // reload handler calls setOrgSettings/setBusinessSetup (new object refs) → this
+  // effect re-fetches → … (observed as 40+ rapid /v1/b2b calls per page open).
+  const orgSettingsRef = useRef(orgSettings);
+  const businessSetupRef = useRef(businessSetup);
+  useEffect(() => { orgSettingsRef.current = orgSettings; }, [orgSettings]);
+  useEffect(() => { businessSetupRef.current = businessSetup; }, [businessSetup]);
+
   useEffect(() => {
     if (!usingApi) return;
     let mounted = true;
@@ -321,7 +332,7 @@ export default function OrganizationsPage() {
         const remoteRows = await listOrganizations({ page: 1, limit: 200 });
         if (!mounted) return;
         if (Array.isArray(remoteRows) && remoteRows.length) {
-          const mapped = remoteRows.map((row) => mapApiOrganization(row, orgSettings, businessSetup));
+          const mapped = remoteRows.map((row) => mapApiOrganization(row, orgSettingsRef.current, businessSetupRef.current));
           setOrganizations(mapped);
           setOrganizationsMode('API');
         } else {
@@ -340,7 +351,7 @@ export default function OrganizationsPage() {
     return () => {
       mounted = false;
     };
-  }, [usingApi, orgSettings, businessSetup]);
+  }, [usingApi]);
 
   const reportOrganizationsApiError = (actionLabel, error) => {
     setOrganizationsSyncError(`${actionLabel} failed in API mode: ${error?.message || 'Unknown error'}. Local state was updated.`);

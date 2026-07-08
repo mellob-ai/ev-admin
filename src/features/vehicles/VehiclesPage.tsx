@@ -293,7 +293,13 @@ export default function VehiclesPage() {
         }
       }
 
+      const existingRow = rows.find((row) => row.id === editingVehicleId) || {};
       const editedRow = {
+        // Preserve the vehicle's existing fields (apiId, frameNumber, name,
+        // topSpeed, range, timeToStation, stationId, images). The edit dialog
+        // does not expose these, and the update payload always includes them —
+        // without this spread they were sent as 0/'' and wiped in the DB.
+        ...existingRow,
         id: editingVehicleId,
         type: form.type,
         biz: form.biz || 'General',
@@ -302,13 +308,13 @@ export default function VehiclesPage() {
         locationPin: nextLocationPin,
         status: form.status,
         locked: form.locked === 'locked',
-        qr: rows.find((row) => row.id === editingVehicleId)?.qr || '',
+        qr: existingRow.qr || '',
       };
 
       if (usingApi) {
         try {
           const updated = await updateVehicle(editedRow);
-          setRows((current) => current.map((row) => (row.id === editingVehicleId ? { ...row, ...updated } : row)));
+          setRows((current) => current.map((row) => (row.id === editingVehicleId ? { ...row, ...editedRow, ...(updated || {}) } : row)));
         } catch (error) {
           reportVehiclesApiError('Update vehicle', error);
           setRows((current) => current.map((row) => (
@@ -377,7 +383,10 @@ export default function VehiclesPage() {
     if (usingApi && nextRows.length === 1) {
       try {
         const created = await createVehicle(nextRows[0]);
-        setRows((prev) => [...prev, created]);
+        // createVehicle now returns a mapped VehicleRow (or null); fall back to
+        // the locally-built row so we never inject the raw API envelope (which
+        // has no .type and crashed the fleet-card render).
+        setRows((prev) => [...prev, created || nextRows[0]]);
       } catch (error) {
         reportVehiclesApiError('Create vehicle', error);
         setRows((prev) => [...prev, ...nextRows]);
@@ -799,7 +808,7 @@ export default function VehiclesPage() {
             <div className="fleet-card-status">
               <span className={`fleet-status-${v.status === 'Active' ? 'active' : v.status === 'Offline' ? 'offline' : 'maint'}`}>{v.status}</span>
             </div>
-            <div className="fleet-type-icon"><i className={`fa ${v.type.includes('Bus') ? 'fa-bus' : v.type.includes('Buggy') ? 'fa-shuttle-space' : v.type.includes('E-Bike') ? 'fa-bolt' : 'fa-bicycle'}`}></i></div>
+            <div className="fleet-type-icon"><i className={`fa ${(v.type || '').includes('Bus') ? 'fa-bus' : (v.type || '').includes('Buggy') ? 'fa-shuttle-space' : (v.type || '').includes('E-Bike') ? 'fa-bolt' : 'fa-bicycle'}`}></i></div>
             <button type="button" className="fleet-id cursor-pointer text-left text-teal-400 hover:underline" onClick={() => handleVehicleDetail(v)}>{v.id}</button>
             <div className="fleet-org text-xs">{v.type} • {v.org} • {v.location || 'Unassigned'}</div>
             <div className="fleet-actions flex items-center gap-2">

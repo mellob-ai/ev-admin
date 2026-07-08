@@ -22,7 +22,8 @@ export async function updateSubscription(plan: Partial<SubscriptionRow>): Promis
 }
 
 export async function deleteSubscription(plan: Partial<SubscriptionRow>): Promise<unknown> {
-  return httpRequest({ method: 'DELETE', path: SUBSCRIPTIONS_PATCH.endpoints.remove, body: { id: plan.apiId || plan.id } });
+  // Backend DeleteSubscription reads the id from the query string (?id=...).
+  return httpRequest({ method: 'DELETE', path: SUBSCRIPTIONS_PATCH.endpoints.remove, query: { id: String(plan.apiId || plan.id || '') } });
 }
 
 export async function getSubscriptionUsers(subId: string): Promise<unknown> {

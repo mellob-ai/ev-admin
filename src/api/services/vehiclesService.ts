@@ -7,16 +7,22 @@ export async function listVehicles(query: Record<string, string> = {}): Promise<
   return VEHICLES_PATCH.fromListPayload(payload);
 }
 
-export async function createVehicle(row: Partial<VehicleRow>): Promise<unknown> {
-  return httpRequest({ method: 'POST', path: VEHICLES_PATCH.endpoints.create, body: VEHICLES_PATCH.toCreatePayload(row) });
+export async function createVehicle(row: Partial<VehicleRow>): Promise<VehicleRow | null> {
+  const payload = await httpRequest({ method: 'POST', path: VEHICLES_PATCH.endpoints.create, body: VEHICLES_PATCH.toCreatePayload(row) });
+  return VEHICLES_PATCH.fromApiResponse(payload);
 }
 
-export async function updateVehicle(row: Partial<VehicleRow>): Promise<unknown> {
-  return httpRequest({ method: 'PUT', path: VEHICLES_PATCH.endpoints.update, body: VEHICLES_PATCH.toUpdatePayload(row) });
+export async function updateVehicle(row: Partial<VehicleRow>): Promise<VehicleRow | null> {
+  const payload = await httpRequest({ method: 'PUT', path: VEHICLES_PATCH.endpoints.update, body: VEHICLES_PATCH.toUpdatePayload(row) });
+  return VEHICLES_PATCH.fromApiResponse(payload);
 }
 
-export async function deleteVehicle(row: Partial<VehicleRow>): Promise<unknown> {
-  return httpRequest({ method: 'DELETE', path: VEHICLES_PATCH.endpoints.remove, body: VEHICLES_PATCH.toDeletePayload(row) });
+// Backend DeleteBike reads the id from the query string (?id=...), not the body.
+export async function deleteVehicle(idOrRow: string | Partial<VehicleRow>): Promise<unknown> {
+  const id = typeof idOrRow === 'string'
+    ? idOrRow
+    : String(idOrRow?.apiId || idOrRow?.id || '');
+  return httpRequest({ method: 'DELETE', path: VEHICLES_PATCH.endpoints.remove, query: { id } });
 }
 
 export async function lockVehicle(id: string): Promise<unknown> {

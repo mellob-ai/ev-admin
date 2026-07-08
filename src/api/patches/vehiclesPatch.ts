@@ -34,6 +34,16 @@ export const VEHICLES_PATCH = {
     return extractRows(payload).map((row) => this.fromApiVehicle(row));
   },
 
+  // Map a single-object create/update response ({ success, data: bike }) to a
+  // VehicleRow. Returns null if the response has no usable bike object, so
+  // callers can fall back to a list refetch instead of injecting a bad row.
+  fromApiResponse(payload: unknown): VehicleRow | null {
+    const p = payload as Record<string, unknown> | null;
+    const bike = (p && typeof p === 'object' && 'data' in p ? p.data : p) as ApiBike | undefined;
+    if (!bike || typeof bike !== 'object' || !(bike as ApiBike).id) return null;
+    return this.fromApiVehicle(bike);
+  },
+
   fromApiVehicle(raw: ApiBike): VehicleRow {
     return {
       id: String(raw.id || ''),

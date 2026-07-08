@@ -800,15 +800,38 @@ export default function LocationsPage() {
 
     if (usingApi) {
       try {
-        const createdRaw = await createLocationApi({
-          business_type_id: payload.businessTypeId,
-          name: payload.name,
-          state: payload.state,
-          city: payload.city,
-          status: String(payload.status || 'Active').toLowerCase(),
-          stations: payload.stations.map((station) => ({ station_name: station.name, coordinates: station.locationPin, status: station.status })),
-        });
-        setLocations((prev) => [mapApiLocation(createdRaw), ...prev]);
+        // The backend stores flat stations (no "location" grouping) and expects
+        // one create per station with real coordinates. The previous single
+        // createLocationApi(...) call dropped the stations array entirely and
+        // defaulted the coordinates to "0"/"0", creating garbage (0,0) stations
+        // that then surfaced in the app's "Nearby Stations". Create one backend
+        // station per station in this location, each with its real pin.
+        const stationsToCreate = (payload.stations || []).filter(
+          (station) => isValidLocationPin(station.locationPin),
+        );
+        if (stationsToCreate.length === 0) {
+          // No valid station coordinates to persist; the backend has nothing to
+          // store for a location without stations. Keep it local only.
+          setLocations((prev) => [payload, ...prev]);
+        } else {
+          for (const station of stationsToCreate) {
+            const [latStr, lngStr] = String(station.locationPin)
+              .split(',')
+              .map((part) => part.trim());
+            await createLocationApi({
+              name: station.name || payload.name,
+              latitude: latStr,
+              longitude: lngStr,
+              capacity: Number(station.capacity) || 0,
+              currentCapacity: Number(station.currentCapacity) || 0,
+            });
+          }
+          // Refetch server truth so the list reflects the real created stations.
+          const remoteRows = await listLocations({ page: 1, limit: 300 });
+          if (Array.isArray(remoteRows) && remoteRows.length) {
+            setLocations(remoteRows.map((row) => mapApiLocation(row)));
+          }
+        }
         setShowCreateModal(false);
         setLocationForm(defaultLocation(createLocationId(locations.length + 2)));
         setStationForm(defaultStation());
