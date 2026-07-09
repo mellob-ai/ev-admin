@@ -394,11 +394,17 @@ export default function StaffPage() {
       return;
     }
     if (!window.confirm('Delete this staff member?')) return;
+    // deleteStaff() reads `staff.phone` (the backend deletes users by phone), so
+    // we must pass the full StaffRow — not the bare id string, which left phone
+    // undefined and made the server return "User not found" while the UI removed
+    // the row anyway (fake success).
+    const target = staffRows.find((row) => row.id === staffId);
     if (usingApi) {
       try {
-        await deleteStaff(staffId);
+        await deleteStaff(target ?? { id: staffId });
       } catch (error) {
         reportStaffApiError('Delete staff', error);
+        return; // keep the row on screen; the server delete failed
       }
     }
     setStaffRows((current) => current.filter((row) => row.id !== staffId));
